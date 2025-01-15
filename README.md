@@ -79,8 +79,8 @@ API_KEY = "YOUR_API_TOKEN"
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/your-repo.git
-   cd your-repo
+   git clone https://github.com/siddhureddy5372/federal-funds-rate-metrics-ByYear.git
+   cd federal-funds-rate-metrics-ByYear
    ```
 
 2. **Install Dependencies**
