@@ -7,11 +7,11 @@ import (
 	"federal-funds-rate-metrics-ByYear/config"
 	"federal-funds-rate-metrics-ByYear/db"
 	"federal-funds-rate-metrics-ByYear/handle"
-
-	"github.com/gorilla/mux"
+	"federal-funds-rate-metrics-ByYear/metrics"
 )
 
 func main() {
+	port := ":8085"
 	// Load the configuration from the .env file
 	appConfig, err := config.LoadConfig()
 	if err != nil {
@@ -25,15 +25,23 @@ func main() {
 	db.Connect(appConfig.DatabaseURL)
 	defer db.Close()
 
-	// Initialize router
-	r := mux.NewRouter()
+	// Register metrics with Prometheus
+	metrics.RegisterMetrics()
 
-	// Routes
-	r.HandleFunc("/", handle.FederalFundsHandlerInsight).Methods("GET")
-	r.HandleFunc("/id/{id}", handle.UserInfo).Methods("GET")
-	r.HandleFunc("/create", handle.CreateUser).Methods("POST")
+	// Start background routines to update metrics.
+	metrics.StartUptime()
+	metrics.UpdateSystemMetrics()
 
-	// Start the server
-	log.Println("Server is running on port 8081...")
-	log.Fatal(http.ListenAndServe(":8081", r))
+	// Instrument and register HTTP handlers with static route patterns.
+	// These static patterns ensure dynamic parts (e.g., email or id) are not included in the metric labels.
+	http.Handle("/", metrics.InstrumentHandler("/", http.HandlerFunc(handle.FederalFundsHandlerInsight)))
+	http.Handle("/auth/{email}", metrics.InstrumentHandler("/auth/{email}", http.HandlerFunc(handle.UserInfo)))
+	http.Handle("/create", metrics.InstrumentHandler("/create", http.HandlerFunc(handle.CreateUser)))
+	http.Handle("/health", metrics.InstrumentHandler("/health", http.HandlerFunc(handle.HealthCheck)))
+
+	// Expose the /metrics endpoint for Prometheus to scrape real-time metrics.
+	http.Handle("/metrics", metrics.MetricsHandler())
+
+	log.Printf("Server is running on port %s...", port)
+	log.Fatal(http.ListenAndServe(port, nil))
 }

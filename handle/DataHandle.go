@@ -69,6 +69,7 @@ func FederalFundsHandlerInsight(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+
 // FederalFundsHandler handles simple requests to fetch federal funds data directly from the API.
 func FederalFundsHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := fetchFederalFundsRate()

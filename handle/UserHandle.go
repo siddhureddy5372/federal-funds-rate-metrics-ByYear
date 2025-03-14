@@ -3,25 +3,17 @@ package handle
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
+	"strings"
 
 	"federal-funds-rate-metrics-ByYear/dto"
 	"federal-funds-rate-metrics-ByYear/services"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/mux"
 )
 
 var validate = validator.New()
 
-// Data structure for JSON response
-
-// Handlers
-
-// POST Handlers
-
-var Message dto.Message
-
+// CreateUser handles POST requests to create a new user.
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var requestDto dto.UserDto
 	var response dto.Message
@@ -36,49 +28,52 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Validation error: "+err.Error(), http.StatusBadRequest)
 		return
-	} else {
-		savedDto, err := services.CreateUser(&requestDto)
-		if err != nil {
-			http.Error(w, "Creation error: "+err.Error(), http.StatusBadRequest)
-			return
-		} else {
-			response = dto.Message{Status: "success", Data: savedDto}
-			w.WriteHeader(http.StatusCreated)
-			jsonResponse(w, response)
-		}
 	}
+
+	savedDto, err := services.CreateUser(&requestDto)
+	if err != nil {
+		http.Error(w, "Creation error: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response = dto.Message{Status: "success", Data: savedDto}
+	w.WriteHeader(http.StatusCreated)
+	jsonResponse(w, response)
 }
 
-// GET Handlers
-// User Information by ID
+// UserInfo handles GET requests to retrieve user information.
+// It expects the URL in the form "/auth/<email>".
 func UserInfo(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	num := vars["id"]
+	// Extract the email from the URL path.
+	// For example, if the URL is "/auth/siddhureddy", then email will be "siddhureddy".
+	const prefix = "/auth/"
+	email := ""
+	if strings.HasPrefix(r.URL.Path, prefix) {
+		email = r.URL.Path[len(prefix):]
+	}
 
-	// Convert ID from string to integer
-	id, err := strconv.Atoi(num)
 	var response dto.Message
 
-	if err != nil {
-		// Respond with an error message
+	if email == "" {
+		// Respond with an error message if email is not provided.
 		response = dto.Message{
 			Status:  "fail",
-			Message: "Invalid ID format",
+			Message: "Invalid email. Please provide a valid email.",
 		}
 	} else {
-		// Fetch user details
-		details, err := services.GetUserByID(id)
+		// Fetch user details.
+		details, err := services.GetUserByEmail(email)
 		if err != nil {
 			http.Error(w, "Retrieval error: "+err.Error(), http.StatusBadRequest)
 			return
 		} else if details.ID == 0 {
-			// User not found case
+			// User not found.
 			response = dto.Message{
 				Status:  "fail",
 				Message: "User not found",
 			}
 		} else {
-			// Success case
+			// Success: convert details to DTO.
 			convertedDto := dto.ConvertToUserDto(details)
 			response = dto.Message{
 				Status: "success",
@@ -86,11 +81,16 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Send JSON response
 	jsonResponse(w, response)
 }
 
-// Utility function to send JSON response
+// HealthCheck handles GET requests to check server health.
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+// jsonResponse is a utility function to send JSON responses.
 func jsonResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)

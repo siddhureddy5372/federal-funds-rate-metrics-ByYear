@@ -2,8 +2,10 @@ package services
 
 import (
 	"federal-funds-rate-metrics-ByYear/dto"
+	"federal-funds-rate-metrics-ByYear/metrics"
 	"log"
 	"strconv"
+	"time"
 
 	"context"
 
@@ -11,6 +13,8 @@ import (
 )
 
 func IsCurrentYearDataPresent(year int) (bool, error) {
+	// Start the timer for query execution
+	start := time.Now()
 	query := `SELECT EXISTS (
 		SELECT 1 FROM federal_funds_insights WHERE year = $1
 	)`
@@ -19,11 +23,14 @@ func IsCurrentYearDataPresent(year int) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	
+	// Record the query duration metric
+	metrics.RecordDBQuery(time.Since(start))
 	return exists, nil
 }
 
 func GetAllYearsData() ([]dto.YearlyInsight, error) {
+	// Start the timer for query execution
+	start := time.Now()
 	query := `SELECT year, average_rate, highest_rate, lowest_rate, growth_percentage, highest_rate_month, lowest_rate_month
 				FROM federal_funds_insights
 				ORDER BY 
@@ -36,7 +43,8 @@ func GetAllYearsData() ([]dto.YearlyInsight, error) {
 		return nil, err
 	}
 	defer rows.Close() // Ensure rows are closed after iteration
-
+	// Record the query duration metric
+	metrics.RecordDBQuery(time.Since(start))
 	var insights []dto.YearlyInsight
 
 	// Iterate through the result set
@@ -154,6 +162,8 @@ func calculateExtremes(monthlyRates map[string]float64) (float64, float64, strin
 }
 
 func StoreFederalFundsInsights(insights []dto.YearlyInsight) error {
+	// Start the timer for query execution
+	start := time.Now()
 	query := `INSERT INTO federal_funds_insights (year, average_rate, highest_rate, lowest_rate, growth_percentage, highest_rate_month, lowest_rate_month)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7)
 	          ON CONFLICT (year) DO UPDATE
@@ -172,7 +182,9 @@ func StoreFederalFundsInsights(insights []dto.YearlyInsight) error {
 			return err
 		}
 	}
-
+	// Record the query duration metric
+	metrics.RecordDBQuery(time.Since(start))
+	
 	log.Println("Insights stored successfully.")
 	return nil
 }
